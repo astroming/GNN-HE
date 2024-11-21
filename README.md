@@ -1,30 +1,23 @@
-# !!!!!!
-NOTE: We have hiden several lines in our scripts. They cannot be executed currently! Instead, the records of training outputs can confirm our experimental results.
-# !!!!!!
-
-
-## GNN+HE--Combining GNN and Heuristic Encoding.
+## GNNHE--Simply Combining GNN and Heuristic Encoding.
 
 
 About
 -----
 This repository supports the following work:
-Combining Representation Learning and Classic Heuristics for Link Prediction.
+Can GNNs Learn Heuristic Information for Link Prediction?
 
-In this work, we aim to study the Combination of the best of both Representation learning and link Heuristics to boost the performance of link prediction.
-ComRH separately encodes link heuristics into trainable embedding vectors and directly combine them with the outputs of representation learning. Also, we propose an effective and scalable Sparse Mask Graph Transformer (SMGT). Theoretically, graph Transformers including SMGT still belong to the family of neighborhood aggregation-based GNNs but their neighborhood contains not only locally linked nodes but also global nodes, which leads to a more expressive power of graph Transformer than classic GNNs. In particular, SMGT uses a mask to restrict the size of neighborhood of each node, which allows the attention to be computed in sparse setting, making SMGT scalable for large graph.
+In this work, we aim to study the link prediction capability of Graph Neural Networks (GNNs). Our analysis shows that GNNs cannot effectively learn structural information related to the number of common neighbors between two nodes, primarily due to the nature of set-based pooling of the neighborhood aggregation scheme. To verify our analysis, we examine the link prediction performance of an approach that incorporates traditional link heuristics (e.g., Common Neighbors) into the GNN.
 
-We conduct experiments on four link prediction datasets from  Open Graph Benchmark (OGB). ComRH outperforms the top competitors on four OGB benchmark datasets by large margins, gaining new state-of-the-arts, 
+We conduct experiments on four link prediction datasets from  Open Graph Benchmark (OGB). Empirical study shows that the link heuristics can boost the prediction performance on sparse graphs. In particular, by only utilizing node embeddings in GCN, the models are able to surpass most previous best results on two dense graphs. 
 
-96.2\% Hits@20 on ogbl-ddi, 
+96.76\% Hits@20 on ogbl-ddi, 
 
-58.1\% Hits@50 on ogbl-collab, 
+58.105\% Hits@50 on ogbl-collab, 
 
-63.5\% Hits@100 on ogbl-ppa, 
+63.54\% Hits@100 on ogbl-ppa, 
 
-88.6\% MRR on ogbl-citation2. 
+88.91\% MRR on ogbl-citation2. 
 
-Further empirical study shows that the link heuristics can boost the prediction performance on sparse graphs and representation learning contributes more on very dense graphs.
 
 Requirements
 ------------
