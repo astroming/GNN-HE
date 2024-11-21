@@ -2324,7 +2324,7 @@ learning rate: 0.0002215
 learning rate: 0.0002192
 : MRR: Run: 02, Epoch: 151, Loss: 0.0191, Valid: 88.90%, Test: 88.92%
 learning rate: 0.0002170
-: MRR: Run: 02, Epoch: 152, Loss: 0.0192, Valid: 88.94%, Test: 88.95%
+: MRR: Run: 02, Epoch: 152, Loss: 0.0192, Valid: 88.94%, Test: 88.94%
 learning rate: 0.0002149
 : MRR: Run: 02, Epoch: 153, Loss: 0.0191, Valid: 88.85%, Test: 88.89%
 learning rate: 0.0002127
@@ -3026,7 +3026,7 @@ MRR
 Run 02:
 Highest Valid: 88.94
 Highest Eval Epoch: 152
-   Final Test: 88.95
+   Final Test: 88.94
 AUC
 ACC
 learning rate: 0.0010000
@@ -3290,11 +3290,11 @@ learning rate: 0.0002763
 learning rate: 0.0002735
 : MRR: Run: 03, Epoch: 129, Loss: 0.0194, Valid: 88.85%, Test: 88.83%
 learning rate: 0.0002708
-: MRR: Run: 03, Epoch: 130, Loss: 0.0190, Valid: 88.94%, Test: 88.93%
+: MRR: Run: 03, Epoch: 130, Loss: 0.0190, Valid: 88.94%, Test: 88.90%
 learning rate: 0.0002680
 : MRR: Run: 03, Epoch: 131, Loss: 0.0194, Valid: 88.93%, Test: 88.89%
 learning rate: 0.0002654
-: MRR: Run: 03, Epoch: 132, Loss: 0.0192, Valid: 88.95%, Test: 88.95%
+: MRR: Run: 03, Epoch: 132, Loss: 0.0192, Valid: 88.95%, Test: 88.88%
 learning rate: 0.0002627
 : MRR: Run: 03, Epoch: 133, Loss: 0.0191, Valid: 88.85%, Test: 88.83%
 learning rate: 0.0002601
@@ -4036,7 +4036,7 @@ MRR
 Run 03:
 Highest Valid: 88.95
 Highest Eval Epoch: 132
-   Final Test: 88.95
+   Final Test: 88.88
 AUC
 ACC
 learning rate: 0.0010000
@@ -4368,7 +4368,7 @@ learning rate: 0.0001963
 learning rate: 0.0001943
 : MRR: Run: 04, Epoch: 163, Loss: 0.0187, Valid: 88.85%, Test: 88.87%
 learning rate: 0.0001924
-: MRR: Run: 04, Epoch: 164, Loss: 0.0186, Valid: 88.88%, Test: 88.89%
+: MRR: Run: 04, Epoch: 164, Loss: 0.0186, Valid: 88.88%, Test: 88.86%
 learning rate: 0.0001905
 : MRR: Run: 04, Epoch: 165, Loss: 0.0188, Valid: 88.86%, Test: 88.89%
 learning rate: 0.0001886
@@ -5046,7 +5046,7 @@ MRR
 Run 04:
 Highest Valid: 88.88
 Highest Eval Epoch: 164
-   Final Test: 88.89
+   Final Test: 88.86
 AUC
 ACC
 learning rate: 0.0010000
@@ -5320,7 +5320,7 @@ learning rate: 0.0002627
 learning rate: 0.0002601
 : MRR: Run: 05, Epoch: 134, Loss: 0.0191, Valid: 88.88%, Test: 88.88%
 learning rate: 0.0002575
-: MRR: Run: 05, Epoch: 135, Loss: 0.0188, Valid: 88.97%, Test: 88.97%
+: MRR: Run: 05, Epoch: 135, Loss: 0.0188, Valid: 88.97%, Test: 88.93%
 learning rate: 0.0002549
 : MRR: Run: 05, Epoch: 136, Loss: 0.0191, Valid: 88.94%, Test: 88.92%
 learning rate: 0.0002524
@@ -6056,7 +6056,7 @@ MRR
 Run 05:
 Highest Valid: 88.97
 Highest Eval Epoch: 135
-   Final Test: 88.97
+   Final Test: 88.93
 AUC
 ACC
 learning rate: 0.0010000
@@ -7320,7 +7320,7 @@ learning rate: 0.0002905
 learning rate: 0.0002876
 : MRR: Run: 07, Epoch: 124, Loss: 0.0194, Valid: 88.82%, Test: 88.83%
 learning rate: 0.0002847
-: MRR: Run: 07, Epoch: 125, Loss: 0.0194, Valid: 88.85%, Test: 88.88%
+: MRR: Run: 07, Epoch: 125, Loss: 0.0194, Valid: 88.85%, Test: 88.83%
 learning rate: 0.0002819
 : MRR: Run: 07, Epoch: 126, Loss: 0.0188, Valid: 88.76%, Test: 88.74%
 learning rate: 0.0002790
@@ -8076,7 +8076,7 @@ MRR
 Run 07:
 Highest Valid: 88.85
 Highest Eval Epoch: 125
-   Final Test: 88.88
+   Final Test: 88.83
 AUC
 ACC
 learning rate: 0.0010000
@@ -9384,7 +9384,7 @@ learning rate: 0.0002329
 learning rate: 0.0002305
 : MRR: Run: 09, Epoch: 146, Loss: 0.0187, Valid: 88.78%, Test: 88.81%
 learning rate: 0.0002282
-: MRR: Run: 09, Epoch: 147, Loss: 0.0190, Valid: 88.88%, Test: 88.91%
+: MRR: Run: 09, Epoch: 147, Loss: 0.0190, Valid: 88.88%, Test: 88.88%
 learning rate: 0.0002259
 : MRR: Run: 09, Epoch: 148, Loss: 0.0191, Valid: 88.75%, Test: 88.80%
 learning rate: 0.0002237
@@ -10096,7 +10096,7 @@ MRR
 Run 09:
 Highest Valid: 88.88
 Highest Eval Epoch: 147
-   Final Test: 88.91
+   Final Test: 88.88
 AUC
 ACC
 Hits@20
@@ -10105,6 +10105,6 @@ Hits@100
 MRR
 All non-Nan runs: 10
 Highest Valid: 88.92 ± 0.05
-   Final Test: 88.94 ± 0.03
+   Final Test: 88.91 ± 0.05
 AUC
 ACC

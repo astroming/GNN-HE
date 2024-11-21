@@ -1,11 +1,15 @@
+# Copyright (c) Facebook, Inc. and its affiliates.
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 import argparse, os, sys, time, random
 import os.path as osp
 from shutil import copy
 from tqdm import tqdm
-from horology import Timing
+# from horology import Timing
 
 import numpy as np
-import pandas as pd
+# import pandas as pd
 import scipy.sparse as ssp
 import torch
 import torch_sparse
@@ -16,7 +20,7 @@ from torch_geometric.utils import (negative_sampling, to_undirected, add_self_lo
 
 from ogb.linkproppred import PygLinkPropPredDataset
 from ogb.linkproppred import Evaluator
-from sklearn.metrics import roc_auc_score
+# from sklearn.metrics import roc_auc_score
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -141,6 +145,8 @@ def get_eval_result(args, val_pred, val_true, test_pred, test_true):
 ##################################################################################################
 ##################################################################################################
 
+
+# speed up negative sampling #####################################################################
 def maybe_num_nodes(edge_index, num_nodes=None):
     # copied from torch_geometric
     if num_nodes is not None:
@@ -158,7 +164,7 @@ def sample(high: int, size: int, device=None):
 
 def negative_sampling(edge_index, num_nodes=None, num_neg_samples=None,
                       method="sparse", force_undirected=False):
-    # modify the code form torch_geometric: we use np.random.default_rng() to speed up the sampling.
+    ### We modify the code form torch_geometric: we use np.random.default_rng() to speed up the sampling.
     r"""Samples random negative edges of a graph given by :attr:`edge_index`.
 
     Args:
@@ -241,8 +247,7 @@ def negative_sampling(edge_index, num_nodes=None, num_neg_samples=None,
         neg_edge_index = torch.stack([row, col], dim=0).long()
 
     return neg_edge_index
-
-
+# end speed up negative sampling  #################################################################
 
 def get_x_scale(x, method='gaussian'):
     # method: gaussian, maxmin
@@ -256,15 +261,6 @@ def get_x_scale(x, method='gaussian'):
         x = (x - ds_min) / (ds_max - ds_min)
     return x
 
-def get_path(args, name, posneg_split):
-    # initialize the dirs of high_adjs
-    posneg, split = posneg_split.split('_')
-    full_name = f'{name}'
-    if args.use_val and split == 'test':
-        full_name += '_useval'
-    full_name += f'.pt'
-    path_name = osp.join(args.dir_root, 'processed', full_name)
-    return path_name
 
 def remove_self_connection(adj):
     adj[np.arange(adj.shape[0]), np.arange(adj.shape[0])] = 0
@@ -284,6 +280,202 @@ def get_negative_sampling(args, data, split_edge, num_neg_samples=None):
     return edges
 
 
+class Distance_edges(Dataset):
+    def __init__(self, args, data, split_edge, use_val=False):
+        self.args = args
+        self.data = data
+        self.split_edge = split_edge
+        self.use_val = use_val
+        ##################################################################
+        self.num_loop = self.args.max_dist - 2 # we will use high-hop adjs to get distance
+        self.posneg_splits, self.edges_dict = self.get_splits_edges()
+        self.adj = self.get_adj()
+        self.adj_t = self.adj.transpose()
+        # neis_sum for Jaccard
+        self.neis_sum = np.array(self.adj.sum(axis=1)).flatten()
+        # adj_log for Adamic/Adar
+        adj_log = 1 / np.log(self.neis_sum)
+        adj_log = np.nan_to_num(adj_log, nan=0, posinf=1.5, neginf=0)
+        adj_log = self.adj.multiply(adj_log).tocsr()
+        self.adj_log = adj_log.transpose()
+        # adj_ra for ra
+        adj_ra = 1 / self.neis_sum
+        adj_ra = np.nan_to_num(adj_ra, nan=0, posinf=0, neginf=0)
+        adj_ra = self.adj.multiply(adj_ra).tocsr()
+        self.adj_ra = adj_ra.transpose()
+        # perms for parallel computing
+        step, end = self.args.heurisctic_batch_size, self.adj.shape[0]
+        self.perms = [[i, i+step] if i + step < end else [i,end] for i in range(0, end, step)]
+
+    def __len__(self):
+        return len(self.perms)
+
+    def __getitem__(self, index):
+        perm = self.perms[index]
+        high_adjs = {}
+        #######################################
+        A = self.adj[perm[0]:perm[1]]
+        # Adamic/Adar
+        AAdar = A.dot(self.adj_log)
+        AAdar = AAdar.toarray()
+        # RA
+        ResA = A.dot(self.adj_ra)
+        ResA = ResA.toarray()
+        for i in range(self.num_loop):
+            # with Timing(name='Times of eli: '):
+            if i == 0:
+                # cn and Jaccard
+                A_sum = np.array(A.sum(axis=1)).repeat(A.shape[1], axis=1)
+                A = A.dot(self.adj_t) # csr_matrix.dot do the matrix like the matrix operation in math
+                Cneis = (A.toarray()).astype(int)
+                A_union = A_sum + self.neis_sum - Cneis
+                Jaccard = Cneis / A_union
+            else:
+                A = A.dot(self.adj_t)
+            A.data = np.ones((A.data.shape[0]), dtype=self.args.float) + 1 + i
+            A = remove_self_connection(A)
+            high_adjs[i] = A.toarray()
+        ## prepare SPD #####################################
+        A = high_adjs[0]
+        for i in range(1, self.num_loop):
+            high_adjs[i][A > 0] = 0
+            A += high_adjs[i]
+        del high_adjs
+        A[A == 0] = self.args.max_dist
+        ## add distace to edges #######################################################
+        dist_edges = {}
+        for posneg_split in self.posneg_splits:
+            edges = self.edges_dict[posneg_split]
+            idx = (edges[0] >= perm[0]) & (edges[0] < perm[1])
+            source, target = edges[0][idx] - perm[0], edges[1][idx]
+            heuristics = [source + perm[0], target]
+            ## impantort: do not change the order of the "sentences" below
+            heuristics.append(A[source, target]) # SPD
+            heuristics.append(Cneis[source, target]) # CN
+            heuristics.append(Jaccard[source, target])
+            heuristics.append(AAdar[source, target])
+            heuristics.append(ResA[source, target])
+            dist_edges[posneg_split] = np.vstack(heuristics)#.astype(source.dtype)
+
+        return dist_edges
+
+    def get_splits_edges(self):
+        if self.use_val:
+            posneg_splits = ['pos_test', 'neg_test']
+        else:
+            posneg_splits = ['pos_train', 'neg_train', 'pos_valid', 'neg_valid', 'pos_test', 'neg_test']
+        edges_dict = {}
+        for posneg_split in posneg_splits:
+            posneg, split = posneg_split.split('_')
+            if posneg_split == 'neg_train':
+                train_size = self.split_edge['train']['edge'].size(0)
+                num_neg = train_size * self.args.neg_size
+                edges = get_negative_sampling(self.args, self.data, self.split_edge, num_neg_samples=num_neg)
+            else:
+                edges = self.split_edge[split]['edge'] if posneg == 'pos' else self.split_edge[split]['edge_neg']
+                edges = edges.t()
+            edges_dict[posneg_split] = edges.numpy()
+        return posneg_splits, edges_dict
+
+    def get_adj(self):
+        if self.args.heurisctic_directed:
+            edge_index = (self.data.edge_index).numpy()
+        else:
+            edge_index = to_undirected(self.data.edge_index).numpy()
+        edge_weight = np.ones([edge_index.shape[1]], dtype=self.args.float)
+        num_nodes = self.data.num_nodes
+        adj = ssp.csr_matrix((edge_weight, (edge_index[0], edge_index[1])), shape=(num_nodes, num_nodes))
+        adj = remove_self_connection(adj)
+
+        return adj
+
+def dist_collate_fn(data):
+    dist_edges = {}
+    for key in data[0]:
+        dist_edges[key] = np.hstack([item[key] for item in data])
+    return dist_edges
+
+def get_dist_edges(args, data, split_edge, posneg_split):
+    ## path
+    name = f'dist_edges_spd{args.max_dist}_cn_ja_aa_ra_neg{args.neg_size}'
+    if args.use_val and posneg_split.split('_')[1] == 'test':
+        name += '_useval'
+    name += f'.pt'
+    path = osp.join(args.dir_root, 'processed', name)
+    ## load data
+    reproduce = False
+    if args.heurisctic_reproduce:
+        if posneg_split == 'pos_train' or (posneg_split == 'pos_test' and args.use_val):
+            # the algoristm will produce all posneg_split (i.e. pos_train, neg_train, pos_val, etc.) one time.
+            # Therefore, we only need to reproduce at the beginning (i.e. pos_train).
+            reproduce = True
+    ## get dist_edges #####################################################################
+    if osp.exists(path) and reproduce == False:
+        dist_edges = torch.load(path)
+    else:
+        use_val = True if '_useval' in path else False
+        data_dist = Distance_edges(args, data, split_edge, use_val)
+        loader = DataLoader(data_dist, batch_size=args.num_workers, num_workers=args.num_workers, shuffle=False, collate_fn=dist_collate_fn)
+        res, dist_edges = [], {}
+        for re in tqdm(loader, ncols=50):
+            res.append(re)
+        for key in res[0]:
+            dist_edges[key] = np.hstack([item[key] for item in res])
+        ## save dist_edges to path ####################
+        torch.save(dist_edges, path, pickle_protocol=4)
+    #######################################################################################
+    #######################################################################################
+    ## process heuristics for model #######################################################
+    ## impantort: do not change the order of the "if sentences" below
+    def int_heuristics(heur, max, mag=1):
+        heur = (heur*mag).astype(int)
+        heur[heur < 0] = 0
+        heur[heur > max] = max
+        return heur
+    raw_edges = dist_edges[posneg_split]
+    i=2
+    if args.use_dist:
+        i +=1
+    else:
+        raw_edges = np.delete(raw_edges, i, 0)
+    if args.use_cn:
+        raw_edges[i] = int_heuristics(heur=raw_edges[i], max=args.max_cn, mag=1)
+        i += 1
+    else:
+        raw_edges = np.delete(raw_edges, i, 0)
+    if args.use_ja:
+        raw_edges[i] = int_heuristics(heur=raw_edges[i], max=args.max_ja, mag=args.mag_ja)
+        i += 1
+    else:
+        raw_edges = np.delete(raw_edges, i, 0)
+    if args.use_aa:
+        raw_edges[i] = int_heuristics(heur=raw_edges[i], max=args.max_aa, mag=args.mag_aa)
+        i += 1
+    else:
+        raw_edges = np.delete(raw_edges, i, 0)
+    if args.use_ra:
+        raw_edges[i] = int_heuristics(heur=raw_edges[i], max=args.max_ra, mag=args.mag_ra)
+        i += 1
+    else:
+        raw_edges = np.delete(raw_edges, i, 0)
+
+    edges = torch.from_numpy(raw_edges.astype(int))
+
+    return edges.t()
+
+
+def get_edges(args, data, split_edge, posneg_split):
+    posneg, split = posneg_split.split('_')
+    if args.use_dist or args.use_cn or args.use_ja or args.use_aa or args.use_ra:
+        edges = get_dist_edges(args, data, split_edge, posneg_split)
+    else:
+        if posneg_split == 'neg_train':
+            edges = None
+        else:
+            edges = split_edge[split]['edge'] if posneg == 'pos' else split_edge[split]['edge_neg']
+    return edges
+
+
 def get_dataset(args, posneg_split):
     ## base data ################################################################################################################
     dataset = PygLinkPropPredDataset(name=args.dataset)
@@ -300,7 +492,7 @@ def get_dataset(args, posneg_split):
 
     ## basic pre-processing #####################################################################################################
     args.dir_root = dataset.root
-    data.num_nodes = args.num_nodes = int(data.edge_index.max()) + 1
+    args.num_nodes = data.num_nodes = num_nodes = int(data.edge_index.max()) + 1
     ## x
     if data.x is not None:
         data.x = data.x.to(torch.float32)
@@ -341,10 +533,85 @@ def get_dataset(args, posneg_split):
     if not args.use_weight:
         data.edge_weight = torch.ones([data.edge_index.size(1)])
 
+    ## adj and node degree
+    edge_index = data.edge_index.numpy()
+    edge_weight = data.edge_weight.numpy()
+    adj = ssp.csr_matrix((edge_weight, (edge_index[0], edge_index[1])), shape=(num_nodes, num_nodes), dtype=args.float)
+    # first remove self connection and then add new self connection
+    adj[np.arange(num_nodes), np.arange(num_nodes)] = 0
+    adj.eliminate_zeros()
+    adj = adj + ssp.identity(num_nodes, dtype=args.float)
+    # node degree
+    data.node_degree = np.asarray(adj.sum(axis=1))
+    # adj in torch_sparse.SparseTensor
+    adj = adj.tocoo()
+    row, col, value = torch.Tensor(adj.row).long(), torch.Tensor(adj.col).long(), torch.Tensor(adj.data).float()
+    adj_gnn = torch_sparse.SparseTensor(row=row, col=col, value=value, sparse_sizes=(num_nodes, num_nodes), is_sorted=True)
+    adj_gnn.storage.rowptr()
+    adj_gnn.storage.csr2csc()
+    data.adj_gnn = adj_gnn
+
     return data, split_edge
 
 class graph_prepare():
-    
+    def __init__(self, args, posneg_split):
+        self.args = args
+        self.posneg_split = posneg_split
+        self.data, self.split_edge = get_dataset(self.args, self.posneg_split)
+        self.x = self.data.x
+        self.adj_gnn = self.data.adj_gnn
+        self.degree = self.data.node_degree
+        self.degree[self.degree > args.max_degree] = args.max_degree
+        ## edges ############################################################
+        # with Timing(name='Times of validation: '):
+        if posneg_split != 'neg_train':
+            self.edges = get_edges(self.args, self.data, self.split_edge, self.posneg_split)
+        else:
+            ## setting initial total number of negs in training process
+            edges = self.split_edge['train']['edge']
+            train_size = edges.size(0)
+            self.num_neg = int(train_size * self.args.neg_size)
+            ## get neg edges
+            if self.args.use_dist or self.args.use_cn or self.args.use_ja or self.args.use_aa or self.args.use_ra:
+                self.edges_neg = get_edges(self.args, self.data, self.split_edge, self.posneg_split)
+                # self.edges_neg = self.shuffle_edges(self.edges_neg)
+                # self.dist_cn = self.edges_neg[:, 2:]
+            else:
+                self.edges_neg = get_negative_sampling(self.args, self.data, self.split_edge, num_neg_samples=self.num_neg).t()
+            ## resample setting
+            self.epoch_neg_size = int(min(train_size, self.args.batch_size * (self.args.batch_num + 1)))
+            self.cnt_max = int(self.edges_neg.size(0) / self.epoch_neg_size)
+            self.cnt = 0
+
+        print(f'finish loading data_{posneg_split}')
+
+    def resample_neg_edges(self):
+        if self.cnt >= self.cnt_max:
+            self.cnt = 0
+            if self.args.use_dist or self.args.use_cn or self.args.use_ja or self.args.use_aa or self.args.use_ra:
+                if self.args.heurisctic_reuse:
+                    print('re-use dist edges for neg samples')
+                    self.args.heurisctic_reproduce = False
+                    self.edges_neg = get_edges(self.args, self.data, self.split_edge, self.posneg_split)
+                    self.edges_neg = self.shuffle_edges(self.edges_neg)
+                else:
+                    print('re-produce dist edges for neg samples')
+                    # reproduce edges by heurisctic_reproduce = True and 'pos_train'
+                    self.args.heurisctic_reproduce = True
+                    _ = get_edges(self.args, self.data, self.split_edge, 'pos_train')[0]
+                    self.edges_neg = get_edges(self.args, self.data, self.split_edge, self.posneg_split)
+            else:
+                self.edges_neg = get_negative_sampling(self.args, self.data, self.split_edge, num_neg_samples=self.num_neg).t()
+                # self.edges_neg = self.shuffle_edges(self.edges_neg)
+            self.cnt_max = int(self.edges_neg.size(0) / self.epoch_neg_size)
+        self.edges = self.edges_neg[self.epoch_neg_size * self.cnt:self.epoch_neg_size * (self.cnt + 1)]
+        self.cnt += 1
+
+    def shuffle_edges(self, edges):
+        num_edge = edges.size(0)
+        perm = np.random.permutation(num_edge)
+        edges = edges[perm]
+        return edges
 
 ##################################################################################################
 ##################################################################################################
