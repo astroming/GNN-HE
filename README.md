@@ -18,7 +18,7 @@ We conduct experiments on four link prediction datasets from  Open Graph Benchma
 
 88.91\% MRR on ogbl-citation2. 
 
-The best model settings and training records can be found in the log files in related folders.
+#### The best model settings and training records can be found in the log files in related folders.
 
 Requirements
 ------------
