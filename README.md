@@ -4,9 +4,10 @@
 About
 -----
 This repository supports the following work:
-### ICLR2023 (rejected): Can GNNs Learn Heuristic Information for Link Prediction?
 
-### the updated version: Can GNNs Learn Link Heuristics? A Concise Review and Evaluation of Link Prediction Methods
+#### arxiv : Can GNNs Learn Link Heuristics? A Concise Review and Evaluation of Link Prediction Methods
+
+This work is updated based on the rejected ICLR 2023 paper: ICLR2023 (rejected): Can GNNs Learn Heuristic Information for Link Prediction?
 
 In this work, we aim to study the link prediction capability of Graph Neural Networks (GNNs). Our analysis shows that GNNs cannot effectively learn structural information related to the number of common neighbors between two nodes, primarily due to the nature of set-based pooling of the neighborhood aggregation scheme. To verify our analysis, we examine the link prediction performance of an approach that incorporates traditional link heuristics (e.g., Common Neighbors) into the GNN.
 
