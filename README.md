@@ -22,7 +22,7 @@ We conduct experiments on four link prediction datasets from  Open Graph Benchma
 Requirements
 ------------
 
-Latest tested combination: Python 3.8.5 + PyTorch 1.10.0 + PyTorch\_Geometric (cuda 102+PyTorch1.10.0) + OGB 1.3.1.
+Tested combination: Python 3.8.5 + PyTorch 1.10.0 + PyTorch\_Geometric (cuda 102+PyTorch1.10.0) + OGB 1.3.1.
 
 Install python basic libraries
 
