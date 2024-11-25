@@ -209,7 +209,8 @@ def test(args, predictor, data_pos, data_neg):
 
     return pred, true
 
-
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
 ########################################################################################################################
 ## start training ######################################################################################################
 for run in range(args.runs):
@@ -218,6 +219,7 @@ for run in range(args.runs):
     # tensorboard_writer = SummaryWriter(osp.join(args.dir_result, f'log_{run}.log'))
     args = get_dim_in(args, data_pos_train)
     predictor = Predictor(args).to(args.device)
+    print('count_parameters:', count_parameters(predictor))
     optimizer = get_optimizer(args, predictor.parameters())
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=args.scheduler_gamma)
 
